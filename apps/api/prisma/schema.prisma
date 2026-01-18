@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============== AUTH & TENANCY ==============
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  googleId     String?  @unique
+
+  memberships WorkspaceMember[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Workspace {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  members   WorkspaceMember[]
+  projects  Project[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id   String @id @default(cuid())
+  role Role   @default(MEMBER)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ============== PROJECTS & PAGES ==============
+
+model Project {
+  id     String  @id @default(cuid())
+  name   String
+  domain String?
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+
+  pages       ProductPage[]
+  auditBatches AuditBatch[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([workspaceId])
+}
+
+model ProductPage {
+  id            String  @id @default(cuid())
+  url           String
+  normalizedUrl String
+  sku           String?
+  variantGroup  String?
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+
+  audits      AuditRun[]
+  latestScore Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, normalizedUrl])
+  @@index([projectId])
+}
+
+// ============== AUDIT SYSTEM ==============
+
+model AuditBatch {
+  id        String      @id @default(cuid())
+  status    BatchStatus @default(QUEUED)
+  totalUrls Int
+  completed Int         @default(0)
+  failed    Int         @default(0)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+
+  runs      AuditRun[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([projectId])
+}
+
+enum BatchStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model AuditRun {
+  id     String      @id @default(cuid())
+  status AuditStatus @default(QUEUED)
+
+  page   ProductPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  pageId String
+
+  batch   AuditBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  batchId String?
+
+  httpStatus   Int?
+  responseTime Int?
+  htmlSnapshot String? @db.Text
+
+  score  AuditScore?
+  checks AuditCheckResult[]
+
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([pageId])
+  @@index([batchId])
+}
+
+enum AuditStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model AuditScore {
+  id      String @id @default(cuid())
+  overall Int
+
+  metadata     Int
+  schema       Int
+  indexability Int
+  content      Int
+  variantRisk  Int
+  aiReadiness  Int
+
+  auditRun   AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+  auditRunId String   @unique
+}
+
+model AuditCheckResult {
+  id       String      @id @default(cuid())
+  checkId  String
+  category String
+  status   CheckStatus
+  severity Severity
+  message  String
+  evidence String?     @db.Text
+  fixHint  String?
+
+  auditRun   AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+  auditRunId String
+
+  @@index([auditRunId, category])
+}
+
+enum CheckStatus {
+  PASS
+  WARN
+  FAIL
+  SKIP
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}

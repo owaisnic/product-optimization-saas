@@ -1,0 +1,31 @@
+{
+  "name": "product-page-intelligence-system",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run -w @ppi/api start:dev",
+    "dev:web": "npm run -w @ppi/web dev",
+    "build:api": "npm run -w @ppi/api build",
+    "build:web": "npm run -w @ppi/web build",
+    "build": "npm run build:api && npm run build:web",
+    "test:api": "npm run -w @ppi/api test",
+    "test:web": "npm run -w @ppi/web test",
+    "test": "npm run test:api && npm run test:web",
+    "db:generate": "npm run -w @ppi/api prisma:generate",
+    "db:push": "npm run -w @ppi/api prisma:push",
+    "db:migrate": "npm run -w @ppi/api prisma:migrate"
+  },
+  "keywords": [
+    "seo",
+    "product-page",
+    "audit",
+    "saas"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Enterprise Product Page Intelligence & SEO Audit Platform"
+}
